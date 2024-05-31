@@ -15,5 +15,7 @@ dependencies:
   - astropy=5.1
   - scipy=1.11.4
   - spiceypy=6.0.0
+  - pip: 
+    - wmm2020==1.1.1
 
 prefix: ~/anaconda3
