@@ -1,0 +1,19 @@
+name: suncet_orbit
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - pip >=22.1
+  - python=3.10
+  - pytest=7.1
+  - pytest-cov=3.0
+  - numpy=1.26.4
+  - matplotlib=3.5
+  - jupyter=1.0
+  - pandas=2.2.2
+  - astropy=5.1
+  - scipy=1.11.4
+  - spiceypy=6.0.0
+
+prefix: ~/anaconda3
