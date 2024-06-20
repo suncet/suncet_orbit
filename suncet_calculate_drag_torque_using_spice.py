@@ -11,9 +11,11 @@ import wmm2020
 from suncet_get_spatial_average_atmospheric_density import average_atmospheric_density
 
 # User input (main things that will be exposed by eventual function)
-altitude = 450 * u.km
+altitude = 550 * u.km
 solar_conditions = 'max'
 hamburger_or_hotdog = 'hotdog' # Which configuration is the dual deploy solar panel in
+start_time = '2025-07-01T00:00:00'
+end_time = '2025-07-05T00:00:00'
 
 # Constants -- really these are tuneable inputs too, but don't expect to change them much for SunCET
 coefficient_of_drag = 2.5 * u.dimensionless_unscaled # depends on shape but 2.5 is typical
@@ -28,7 +30,7 @@ kernels = [
     os.getenv('suncet_data') + 'spice_kernels/naif0012.tls',
     os.getenv('suncet_data') + 'spice_kernels/pck00010.tpc',
     os.getenv('suncet_data') + 'spice_kernels/de440.bsp',
-    os.getenv('suncet_data') + 'spice_kernels/suncet_ephemeris_from_stk.bsp'
+    os.getenv('suncet_data') + 'spice_kernels/suncet_ephemeris_spice_transporter14_1330ltdn.bsp'
 ]
 
 for kernel in kernels:
@@ -144,8 +146,6 @@ def ned_to_ecef(B_ned, lat, lon):
     return B_ecef
 
 # Calculate required data
-start_time = '2025-03-20T18:02:00'
-end_time = '2025-03-21T18:02:00'
 interval = 1440  # 1-minute intervals
 spacecraft_id = '-200000'
 
@@ -219,7 +219,7 @@ target_time = minutes_since_start[target_index] if net_momentum[target_index] >=
 # Plot the torques
 fig, axs = plt.subplots(4, 1, figsize=(8, 13))
 axs[0].plot(minutes_since_start, torque_drag_vs_time)
-axs[0].set_title('SunCET {} km, noon-midnight, {}, solar panel {} config'.format(altitude.value, solar_conditions, hamburger_or_hotdog))
+axs[0].set_title('SunCET {} km, 13:30 LTDN, solar activity {}, solar panel {} config'.format(altitude.value, solar_conditions, hamburger_or_hotdog))
 axs[0].set_ylabel('drag torque [Nm]')
 axs[0].grid(True)
 

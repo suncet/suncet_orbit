@@ -8,7 +8,7 @@ from suncet_get_spatial_average_atmospheric_density import average_atmospheric_d
 
 
 # User input (main things that will be exposed by eventual function)
-altitude = 445 * u.km
+altitude = 550 * u.km
 solar_conditions = 'max'
 hamburger_or_hotdog = 'hotdog' # Which configuration is the dual deploy solar panel in
 
@@ -22,8 +22,8 @@ elif hamburger_or_hotdog == 'hamburger':
 
 # Input data
 data_path = '/Users/masonjp2/Dropbox/suncet_dropbox/9000 Processing/data/synthetic/stk_orbit/'
-orbit_sun_vector_to_velocity_vector_angle = pd.read_csv(data_path + 'SunCET_Sun_Direction_to_Velocity_Direction_400km_Noon_Midnight.csv')
-local_mag_field_vector_to_body_axes_angles = pd.read_csv(data_path + 'SunCET_MagField_to_BodyXYZ_400km_Noon_Midnight.csv')
+orbit_sun_vector_to_velocity_vector_angle = pd.read_csv(data_path + 'SunCET_Sun_Direction_to_Velocity_Direction_transporter14_1330ltdn.csv')
+local_mag_field_vector_to_body_axes_angles = pd.read_csv(data_path + 'SunCET_BodyXYZ_to_MagField_transporter14_1330ltdn.csv')
 
 # XACT-15 specs
 adcs_momentum_storage = 0.015 * u.N *u.m * u.s # amount of angular momentum the system can store. The spec sheet says that this is for the whole system, though it's not clear if each wheel can hold this much or if each is less and it knows how to transition the momentum between them. 
@@ -90,7 +90,7 @@ target_time = minutes_since_start[target_index] if net_momentum[target_index] >=
 # Plot the torques
 fig, axs = plt.subplots(4, 1, figsize=(8, 13))
 axs[0].plot(minutes_since_start, torque_drag_vs_time)
-axs[0].set_title('SunCET {} km, noon-midnight, {}, solar panel {} config'.format(altitude.value, solar_conditions, hamburger_or_hotdog))
+axs[0].set_title('SunCET {} km, 13:30 LTDN, solar activity {}, solar panel {} config'.format(altitude.value, solar_conditions, hamburger_or_hotdog))
 axs[0].set_ylabel('drag torque [Nm]')
 axs[0].grid(True)
 
