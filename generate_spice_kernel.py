@@ -86,21 +86,17 @@ def create_ck_file(times, positions, path_filename=None):
         position_sc = positions[i]
         position_sun, _ = sp.spkezr('SUN', times[i], 'J2000', 'NONE', 'EARTH')
         quat = compute_attitude_quaternion(position_sc, position_sun[:3])
+        epsilon = 1e-6
 
-        start_time = float(times[i])
-        stop_time = float(times[i + 1])
+        start_times = times
+        stop_times = np.roll(times, -1)
+        stop_times[-1] = start_times[-1] + epsilon
+
+        start_time = start_times[i]
+        stop_time = stop_times[i]
+
         position_sc = positions[i]
         position_sun, _ = sp.spkezr('SUN', start_time, 'J2000', 'NONE', 'EARTH')
-        quat = compute_attitude_quaternion(position_sc, position_sun[:3])
-
-        # Convert to contiguous arrays
-        start_times = np.ascontiguousarray([start_time, stop_time], dtype=np.float64)
-        stop_times = np.ascontiguousarray([start_time, stop_time], dtype=np.float64)
-        quats = np.ascontiguousarray([quat, quat], dtype=np.float64)
-
-        print(f"Start Time: {start_time}, Stop Time: {stop_time}")
-        print(f"Quaternions: {quats}")
-        print(f"Angular Velocity: {av_array}")
 
         sp.ckw02(
             handle,
@@ -112,7 +108,7 @@ def create_ck_file(times, positions, path_filename=None):
             2,  # Number of pointing records (start and end times)
             start_times,  # Encoded SCLK interval start times
             stop_times,  # Encoded SCLK interval stop times
-            quats,  # Quaternions representing instrument pointing
+            quat,  # Quaternions representing instrument pointing
             av_array,  # Angular velocity vectors
             np.array([1.0, 1.0], dtype=np.float64)  # Rates: number of seconds per tick for each interval
         )
