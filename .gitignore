@@ -4,3 +4,5 @@ __pycache__/suncet_get_spatial_average_atmospheric_density.cpython-310.pyc
 .DS_Store
 *.csv
 *.png
+*.mp4
+*.log
