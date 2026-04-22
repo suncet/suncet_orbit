@@ -19,5 +19,9 @@ dependencies:
   - pip:
     - wmm2020==1.1.1
     - msise00
+    - pyvista>=0.43
+    - imageio>=2.31
+    - sgp4>=2.23
+    - spacetrack>=1.4.0
 
 prefix: ~/anaconda3
