@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import os
@@ -477,6 +478,20 @@ def plot_altitude_history(
     plt.close(fig)
 
 
+def write_altitude_csv(
+    epochs: np.ndarray,
+    altitudes_km: np.ndarray,
+    out_csv: Path,
+) -> None:
+    """Write TLE-epoch altitude series (mean-motion derived) to CSV."""
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    with out_csv.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch_utc", "altitude_km"])
+        for ep, alt in zip(epochs, altitudes_km, strict=True):
+            writer.writerow([ep.astimezone(timezone.utc).isoformat(), f"{float(alt):.6f}"])
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Fetch TLEs from Space-Track, report altitude history, and estimate de-orbit date."
@@ -487,6 +502,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("altitude_history.png"),
         help="Output PNG path for altitude history plot.",
+    )
+    parser.add_argument(
+        "--csv-file",
+        type=Path,
+        default=None,
+        help="Output CSV path for epoch altitude series. Default: same path as --plot-file with .csv extension.",
     )
     parser.add_argument(
         "--deorbit-threshold-km",
@@ -655,6 +676,9 @@ def main() -> None:
         spacetrack_decay_utc=spacetrack_decay_date,
     )
 
+    csv_path = args.csv_file if args.csv_file is not None else args.plot_file.with_suffix(".csv")
+    write_altitude_csv(epochs, altitudes, csv_path)
+
     print(f"NORAD ID: {args.norad_id}")
     if args.skip_archive_fetch and not args.offline_only:
         print("Space-Track mode: quick update (latest TLE + DECAY only; gp_history skipped)")
@@ -679,6 +703,7 @@ def main() -> None:
     print(f"Historical points used: {len(merged)}")
     print(f"Cache file: {cache_path}")
     print(f"Plot file: {args.plot_file}")
+    print(f"CSV file: {csv_path}")
     if projection.projected_date is None:
         print(f"Projected de-orbit date: unavailable ({projection.note})")
     else:
