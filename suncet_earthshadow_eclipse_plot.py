@@ -43,6 +43,42 @@ def mission_span_s(events: list[UmbraEvent]) -> float:
     return (last_end - first).total_seconds()
 
 
+def eclipse_time_in_window_s(events: list[UmbraEvent], window_start: datetime, window_end: datetime) -> float:
+    """Total eclipse seconds inside [window_start, window_end), clipping partial overlaps."""
+    total_s = 0.0
+    for e in events:
+        ev_start = e.start_utc
+        ev_end = e.start_utc + timedelta(seconds=e.total_duration_s)
+        overlap_start = max(ev_start, window_start)
+        overlap_end = min(ev_end, window_end)
+        if overlap_end > overlap_start:
+            total_s += (overlap_end - overlap_start).total_seconds()
+    return total_s
+
+
+def per_orbit_eclipse_seconds(
+    events: list[UmbraEvent], window_start: datetime, window_end: datetime, period_s: float
+) -> np.ndarray:
+    """Eclipse seconds for each orbit in a fixed window; zero means no eclipse that orbit."""
+    n_orbits = max(1, int(np.ceil((window_end - window_start).total_seconds() / period_s)))
+    eclipse_s = np.zeros(n_orbits, dtype=float)
+
+    for e in events:
+        ev_start = e.start_utc
+        ev_end = e.start_utc + timedelta(seconds=e.total_duration_s)
+        overlap_start = max(ev_start, window_start)
+        overlap_end = min(ev_end, window_end)
+        if overlap_end <= overlap_start:
+            continue
+
+        # Assign clipped event duration to the orbit containing its overlap start.
+        orbit_idx = int((overlap_start - window_start).total_seconds() // period_s)
+        orbit_idx = min(max(orbit_idx, 0), n_orbits - 1)
+        eclipse_s[orbit_idx] += (overlap_end - overlap_start).total_seconds()
+
+    return np.clip(eclipse_s, 0.0, period_s)
+
+
 def default_earthshadow_path() -> Path:
     base = os.getenv("suncet_data")
     if not base:
@@ -156,6 +192,7 @@ def main() -> None:
         print(f"Error: file not found: {path}", file=sys.stderr)
         sys.exit(1)
     out_path = args.output if args.output is not None else path.parent / "earthshadow_eclipse_duration.png"
+    duty_out_path = out_path.with_name(f"{out_path.stem}_science_duty_cycle{out_path.suffix}")
 
     events = parse_earthshadow_txt(path)
     if not events:
@@ -165,12 +202,14 @@ def main() -> None:
     times = [e.start_utc for e in events]
     minutes = np.array([e.total_duration_s / 60.0 for e in events], dtype=float)
 
+    period_s = circular_orbit_period_s(args.altitude_km)
+    duty_cycle = np.clip(1.0 - (minutes * 60.0) / period_s, 0.0, 1.0)
+    duty_cycle_pct = 100.0 * duty_cycle
+
     median_m = float(np.median(minutes))
     mean_m = float(np.mean(minutes))
     std_m = float(np.std(minutes, ddof=0))
     max_m = float(np.max(minutes))
-
-    period_s = circular_orbit_period_s(args.altitude_km)
     orbits_per_day = SECONDS_PER_DAY / period_s
     span_s = mission_span_s(events)
     total_orbits = span_s / period_s
@@ -178,6 +217,18 @@ def main() -> None:
     n_gt_15 = int(np.sum(minutes > 15.0))
     share_orbits_gt_3 = 100.0 * n_gt_3 / total_orbits if total_orbits > 0 else 0.0
     share_orbits_gt_15 = 100.0 * n_gt_15 / total_orbits if total_orbits > 0 else 0.0
+
+    report_start = min(e.start_utc for e in events)
+    report_end = report_start + timedelta(days=365.0)
+    report_seconds = (report_end - report_start).total_seconds()
+    eclipse_seconds_report = eclipse_time_in_window_s(events, report_start, report_end)
+    no_eclipse_pct_report = (
+        100.0 * (1.0 - eclipse_seconds_report / report_seconds) if report_seconds > 0 else 0.0
+    )
+    orbit_eclipse_s = per_orbit_eclipse_seconds(events, report_start, report_end, period_s)
+    orbit_duty_cycle_pct = 100.0 * (1.0 - orbit_eclipse_s / period_s)
+    median_dc_pct = float(np.median(orbit_duty_cycle_pct))
+    mean_dc_pct = float(np.mean(orbit_duty_cycle_pct))
 
     print(f"Source: {path}")
     print(f"Eclipse count: {len(events)}")
@@ -199,6 +250,8 @@ def main() -> None:
     print(f"Mean duration:   {mean_m:.4f} min")
     print(f"Std deviation:   {std_m:.4f} min")
     print(f"Max duration:    {max_m:.4f} min")
+    print(f"Median science duty cycle (insolated/orbit): {median_dc_pct:.0f}%")
+    print(f"Mean science duty cycle (insolated/orbit):   {mean_dc_pct:.0f}%")
     print(
         f"Share of all orbits with eclipse > 3 min:   {share_orbits_gt_3:.2f}% "
         f"({n_gt_3} eclipses / {total_orbits:.1f} orbits)"
@@ -207,18 +260,50 @@ def main() -> None:
         f"Share of all orbits with eclipse > 15 min:  {share_orbits_gt_15:.2f}% "
         f"({n_gt_15} eclipses / {total_orbits:.1f} orbits)"
     )
+    print(
+        "No-eclipse time over 1-year window from first event "
+        f"({report_start} to {report_end}): {no_eclipse_pct_report:.2f}%"
+    )
 
-    fig, ax = plt.subplots(figsize=(11, 4.5), layout="constrained")
-    ax.plot(times, minutes, ".", markersize=3, color="0.2")
-    ax.set_ylabel("eclipse duration [minutes]")
-    ax.set_title("SunCET-1 USSF-178 launch")
-    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y %b"))
-    plt.setp(ax.xaxis.get_majorticklabels(), rotation=35, ha="right")
-    ax.grid(True, alpha=0.3)
-    fig.savefig(out_path, dpi=150)
+    fig1, ax1 = plt.subplots(figsize=(11, 4.5), layout="constrained")
+    ax1.plot(times, minutes, ".", markersize=3, color="0.2")
+    ax1.set_ylabel("eclipse duration [minutes]")
+    ax1.set_xlabel("UTC date")
+    ax1.set_title("SunCET-1 USSF-178 launch")
+    ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y %b"))
+    ax1.set_xlim(report_start, report_end)
+    plt.setp(ax1.xaxis.get_majorticklabels(), rotation=35, ha="right")
+    ax1.grid(True, alpha=0.3)
+    fig1.savefig(out_path, dpi=150)
+    plt.close(fig1)
+
+    fig2, ax2 = plt.subplots(figsize=(11, 4.5), layout="constrained")
+    ax2.plot(times, duty_cycle_pct, ".", markersize=3, color="tab:blue")
+    ax2.set_ylabel("science duty cycle [%]")
+    ax2.set_xlabel("UTC date")
+    ax2.set_ylim(0.0, 100.0)
+    ax2.set_title("SunCET-1 science duty cycle")
+    ax2.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%Y %b"))
+    ax2.set_xlim(report_start, report_end)
+    plt.setp(ax2.xaxis.get_majorticklabels(), rotation=35, ha="right")
+    ax2.grid(True, alpha=0.3)
+    ax2.text(
+        0.02,
+        0.06,
+        f"Mean: {mean_dc_pct:.0f}%\nMedian: {median_dc_pct:.0f}%",
+        transform=ax2.transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=9,
+        bbox={"facecolor": "white", "alpha": 0.85, "edgecolor": "0.7"},
+    )
+    fig2.savefig(duty_out_path, dpi=150)
+    plt.close(fig2)
     print()
-    print(f"Wrote plot: {out_path.resolve()}")
+    print(f"Wrote eclipse-duration plot: {out_path.resolve()}")
+    print(f"Wrote science-duty-cycle plot: {duty_out_path.resolve()}")
 
 
 if __name__ == "__main__":
