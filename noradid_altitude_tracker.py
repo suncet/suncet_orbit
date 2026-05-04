@@ -380,10 +380,12 @@ def plot_altitude_history(
     fit_altitudes_km: np.ndarray | None = None,
     predicted_deorbit_utc: datetime | None = None,
     spacetrack_decay_utc: datetime | None = None,
+    *,
+    show_predictions: bool = True,
 ) -> None:
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(epochs, altitudes_km, marker="o", linestyle="-", linewidth=1.2, markersize=3, label="TLE-derived altitude")
-    if fit_epochs is not None and fit_altitudes_km is not None:
+    if show_predictions and fit_epochs is not None and fit_altitudes_km is not None:
         ax.plot(
             fit_epochs,
             fit_altitudes_km,
@@ -399,7 +401,9 @@ def plot_altitude_history(
     text_pad_km = max(0.02 * y_span, 2.0)
     box_h_km = max(0.015 * y_span, 5.0)
 
-    if predicted_deorbit_utc is not None or spacetrack_decay_utc is not None:
+    if show_predictions and (
+        predicted_deorbit_utc is not None or spacetrack_decay_utc is not None
+    ):
         left, right = ax.get_xlim()
         for dt in (predicted_deorbit_utc, spacetrack_decay_utc):
             if dt is not None:
@@ -413,7 +417,7 @@ def plot_altitude_history(
     span_x = max(right - left, 1e-6)
     box_w_days = max(2.0, 0.012 * span_x)
 
-    if predicted_deorbit_utc is not None:
+    if show_predictions and predicted_deorbit_utc is not None:
         xn = mdates.date2num(predicted_deorbit_utc)
         rect = Rectangle(
             (xn - box_w_days / 2.0, threshold_km - box_h_km / 2.0),
@@ -437,7 +441,7 @@ def plot_altitude_history(
             color="#6a1b9a",
             zorder=6,
         )
-    if spacetrack_decay_utc is not None:
+    if show_predictions and spacetrack_decay_utc is not None:
         xn = mdates.date2num(spacetrack_decay_utc)
         rect = Rectangle(
             (xn - box_w_days / 2.0, threshold_km - box_h_km / 2.0),
@@ -461,11 +465,36 @@ def plot_altitude_history(
             color="#bf6516",
             zorder=6,
         )
-    if predicted_deorbit_utc is not None or spacetrack_decay_utc is not None:
+    if show_predictions and (
+        predicted_deorbit_utc is not None or spacetrack_decay_utc is not None
+    ):
         yb, yt = ax.get_ylim()
         margin = max(0.04 * y_span, 3.0)
         need_bottom = threshold_km - box_h_km / 2.0 - text_pad_km - margin
         ax.set_ylim(min(yb, need_bottom), yt)
+
+    if not show_predictions and len(epochs) and len(altitudes_km):
+        last_ep = epochs[-1]
+        last_alt = float(altitudes_km[-1])
+        if isinstance(last_ep, datetime):
+            last_dn = mdates.date2num(last_ep)
+            ep_label = last_ep.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        else:
+            last_dn = float(last_ep)
+            ep_label = str(last_ep)
+        ax.annotate(
+            f"{last_alt:.2f} km\n({ep_label})",
+            xy=(last_dn, last_alt),
+            xytext=(-12, 0),
+            textcoords="offset points",
+            ha="right",
+            va="center",
+            fontsize=8,
+            color="#0d47a1",
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="#0d47a1", alpha=0.92),
+            arrowprops=dict(arrowstyle="-", color="#0d47a1", lw=0.8, shrinkA=0, shrinkB=4),
+            zorder=8,
+        )
     ax.set_title(f"NORAD {catnr} Altitude History from TLE Epochs")
     ax.set_xlabel("Epoch (UTC)")
     ax.set_ylabel("Estimated Altitude (km)")
@@ -519,6 +548,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--offline-only",
         action="store_true",
         help="Use cached records only and skip all network calls.",
+    )
+    parser.add_argument(
+        "--no-plot-predictions",
+        action="store_true",
+        help="Omit model projection curve and de-orbit prediction markers from the plot; "
+        "annotate the last TLE epoch altitude instead.",
     )
     parser.add_argument(
         "--archive-file",
@@ -674,6 +709,7 @@ def main() -> None:
         fit_altitudes_km=projection.fit_altitudes_km,
         predicted_deorbit_utc=projection.projected_date,
         spacetrack_decay_utc=spacetrack_decay_date,
+        show_predictions=not args.no_plot_predictions,
     )
 
     csv_path = args.csv_file if args.csv_file is not None else args.plot_file.with_suffix(".csv")
