@@ -521,6 +521,10 @@ def write_altitude_csv(
             writer.writerow([ep.astimezone(timezone.utc).isoformat(), f"{float(alt):.6f}"])
 
 
+def default_plot_file(norad_id: int) -> Path:
+    return Path(f"altitude_history_{norad_id}.png")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Fetch TLEs from Space-Track, report altitude history, and estimate de-orbit date."
@@ -529,8 +533,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--plot-file",
         type=Path,
-        default=Path("altitude_history.png"),
-        help="Output PNG path for altitude history plot.",
+        default=None,
+        help="Output PNG path for altitude history plot. Default: altitude_history_<norad-id>.png.",
     )
     parser.add_argument(
         "--csv-file",
@@ -554,6 +558,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Omit model projection curve and de-orbit prediction markers from the plot; "
         "annotate the last TLE epoch altitude instead.",
+    )
+    parser.add_argument(
+        "--no-model-prediction",
+        action="store_true",
+        help="Omit the local model fit curve and projected de-orbit marker from the plot; "
+        "Space-Track decay marker is still shown unless --no-plot-predictions is set.",
     )
     parser.add_argument(
         "--archive-file",
@@ -623,6 +633,7 @@ def resolve_history_start(args: argparse.Namespace) -> datetime | None:
 
 def main() -> None:
     args = build_parser().parse_args()
+    plot_file = args.plot_file or default_plot_file(args.norad_id)
     history_start = resolve_history_start(args)
     cache_path = CACHE_DIR / f"tle_archive_{args.norad_id}.json"
 
@@ -699,20 +710,21 @@ def main() -> None:
         except Exception as err:
             print(f"[warn] Space-Track decay fetch failed: {err}")
 
+    show_model_on_plot = not args.no_plot_predictions and not args.no_model_prediction
     plot_altitude_history(
         epochs,
         altitudes,
-        args.plot_file,
+        plot_file,
         args.norad_id,
         args.deorbit_threshold_km,
-        fit_epochs=projection.fit_epochs,
-        fit_altitudes_km=projection.fit_altitudes_km,
-        predicted_deorbit_utc=projection.projected_date,
+        fit_epochs=projection.fit_epochs if show_model_on_plot else None,
+        fit_altitudes_km=projection.fit_altitudes_km if show_model_on_plot else None,
+        predicted_deorbit_utc=projection.projected_date if show_model_on_plot else None,
         spacetrack_decay_utc=spacetrack_decay_date,
         show_predictions=not args.no_plot_predictions,
     )
 
-    csv_path = args.csv_file if args.csv_file is not None else args.plot_file.with_suffix(".csv")
+    csv_path = args.csv_file if args.csv_file is not None else plot_file.with_suffix(".csv")
     write_altitude_csv(epochs, altitudes, csv_path)
 
     print(f"NORAD ID: {args.norad_id}")
@@ -738,7 +750,7 @@ def main() -> None:
     print(f"Current altitude: {current_alt_km:.2f} km ({current_alt_note})")
     print(f"Historical points used: {len(merged)}")
     print(f"Cache file: {cache_path}")
-    print(f"Plot file: {args.plot_file}")
+    print(f"Plot file: {plot_file}")
     print(f"CSV file: {csv_path}")
     if projection.projected_date is None:
         print(f"Projected de-orbit date: unavailable ({projection.note})")
