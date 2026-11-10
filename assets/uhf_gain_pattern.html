@@ -1,0 +1,438 @@
+<div id="suncet-uhf-pattern">
+  <h2>SunCET UHF antenna pattern</h2>
+  <div class="viz-controls pattern-controls">
+    <label class="form-label" for="suncet-pattern-direction">Line of sight
+      <select class="form-select" id="suncet-pattern-direction">
+        <optgroup label="Example passes">
+          <option value="fairbanks" selected>Fairbanks pass</option>
+          <option value="boulder">Boulder pass</option>
+        </optgroup>
+        <optgroup label="Spacecraft body axes">
+          <option value="+X">+X</option>
+          <option value="-X">−X</option>
+          <option value="+Y">+Y</option>
+          <option value="-Y">−Y · radiator</option>
+          <option value="+Z">+Z · Sun</option>
+          <option value="-Z">−Z</option>
+        </optgroup>
+        <option value="picked" hidden>Picked direction</option>
+      </select>
+    </label>
+    <label class="form-label pattern-time" id="suncet-pattern-time" for="suncet-pattern-slider">
+      <span>Pass time <output id="suncet-pattern-elapsed" class="tabular-nums"></output></span>
+      <input class="form-range" id="suncet-pattern-slider" type="range" min="0" max="552" step="any" value="240">
+    </label>
+    <button class="btn btn-ghost" id="suncet-pattern-turn" type="button" data-tooltip="Rotate all three plots together">Rotate view</button>
+  </div>
+  <div class="pattern-split" aria-label="Power split along the selected line of sight">
+    <div class="pattern-fraction"><span class="pattern-dot pattern-rh"></span> <span id="suncet-pattern-rhp" class="tabular-nums"></span></div>
+    <div class="pattern-bar" aria-hidden="true"><div id="suncet-pattern-share"></div></div>
+    <div class="pattern-fraction"><span class="pattern-dot pattern-lh"></span> <span id="suncet-pattern-lhp" class="tabular-nums"></span></div>
+  </div>
+  <div class="pattern-views">
+    <figure>
+      <figcaption><h3>Total gain</h3><output class="tabular-nums" id="suncet-pattern-total"></output></figcaption>
+      <canvas class="cursor-interaction" role="img" aria-label="Total antenna gain in spacecraft body axes, colored by the dominant circular polarization"></canvas>
+    </figure>
+    <figure>
+      <figcaption><h3>RHCP gain</h3><output class="tabular-nums" id="suncet-pattern-rh"></output></figcaption>
+      <canvas class="cursor-interaction" role="img" aria-label="Right-hand circular component of the antenna gain in spacecraft body axes"></canvas>
+    </figure>
+    <figure>
+      <figcaption><h3>LHCP gain</h3><output class="tabular-nums" id="suncet-pattern-lh"></output></figcaption>
+      <canvas class="cursor-interaction" role="img" aria-label="Left-hand circular component of the antenna gain in spacecraft body axes"></canvas>
+    </figure>
+  </div>
+  <div class="viz-row text-small text-muted pattern-key">
+    <span>Radius on shared dBi scale · floor −20 dBi</span>
+    <span><i class="pattern-ring"></i> 0 dBi</span>
+    <span><i class="pattern-ray"></i> Line of sight</span>
+    <span class="pattern-key-hand"><i class="pattern-mix"></i> RHCP · equal · LHCP</span>
+  </div>
+  <p id="suncet-pattern-status" class="sr-only" aria-live="polite"></p>
+</div>
+<style>
+  #suncet-uhf-pattern { display:grid; gap:calc(var(--font-size-base) * .75); }
+  #suncet-uhf-pattern h2 { margin-inline-end:90px; }
+  #suncet-uhf-pattern .pattern-controls { align-items:end; }
+  #suncet-uhf-pattern .pattern-time { min-width:0; }
+  #suncet-uhf-pattern .pattern-time span { white-space:nowrap; }
+  #suncet-uhf-pattern .pattern-time[hidden] { display:none; }
+  #suncet-uhf-pattern .pattern-split {
+    display:grid; grid-template-columns:max-content minmax(20px,1fr) max-content;
+    align-items:center; gap:calc(var(--font-size-base) * .55);
+    --rh:var(--viz-series-1,var(--blue)); --lh:var(--viz-series-2,var(--orange));
+  }
+  #suncet-uhf-pattern .pattern-fraction { display:flex; align-items:center; gap:calc(var(--font-size-base) * .3); }
+  #suncet-uhf-pattern .pattern-dot { width:.55em; height:.55em; border-radius:50%; flex:none; }
+  #suncet-uhf-pattern .pattern-rh { background:var(--rh); }
+  #suncet-uhf-pattern .pattern-lh { background:var(--lh); }
+  #suncet-uhf-pattern .pattern-bar { background:var(--lh); height:.44em; border-radius:.22em; overflow:hidden; }
+  #suncet-uhf-pattern .pattern-bar > div { height:100%; background:var(--rh); }
+  #suncet-uhf-pattern .pattern-views { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:calc(var(--font-size-base) * .5); }
+  #suncet-uhf-pattern figure { margin:0; min-width:0; }
+  #suncet-uhf-pattern figcaption {
+    display:flex; align-items:baseline; flex-wrap:wrap; justify-content:space-between;
+    column-gap:calc(var(--font-size-base) * .5); padding-inline:calc(var(--font-size-base) * .3);
+  }
+  #suncet-uhf-pattern canvas { display:block; width:100%; height:clamp(216px,27vw,290px); touch-action:pan-y; }
+  #suncet-uhf-pattern canvas[data-dragging] { cursor:grabbing; }
+  #suncet-uhf-pattern .pattern-key { column-gap:calc(var(--font-size-base) * .9); row-gap:calc(var(--font-size-base) * .35); }
+  #suncet-uhf-pattern .pattern-ring, #suncet-uhf-pattern .pattern-ray, #suncet-uhf-pattern .pattern-mix {
+    display:inline-block; width:1.4em; margin-inline-end:.15em; vertical-align:middle;
+  }
+  #suncet-uhf-pattern .pattern-ring { border-top:1px dashed var(--muted-foreground); }
+  #suncet-uhf-pattern .pattern-ray { border-top:1px solid var(--foreground); }
+  #suncet-uhf-pattern .pattern-mix {
+    width:2em; height:.45em;
+    background:linear-gradient(90deg,var(--viz-series-1,var(--blue)),var(--muted),var(--viz-series-2,var(--orange)));
+  }
+  @media (max-width:630px) {
+    #suncet-uhf-pattern .pattern-views { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    #suncet-uhf-pattern figure:first-child { grid-column:1/-1; }
+    #suncet-uhf-pattern canvas { height:clamp(164px,43vw,245px); }
+    #suncet-uhf-pattern figure:first-child canvas { height:clamp(235px,52vw,285px); }
+  }
+</style>
+<script id="suncet-pattern-data" type="application/json">__PATTERN_DATA__</script>
+<script>
+(() => {
+  'use strict';
+  const root = document.getElementById('suncet-uhf-pattern');
+  const get = name => document.getElementById('suncet-pattern-' + name);
+  const {gain, tracks} = JSON.parse(get('data').textContent);
+  const powers = Float64Array.from(gain, value => value === null ? 0 : 10 ** (value / 10000));
+  const canvases = [...root.querySelectorAll('canvas')];
+  const contexts = canvases.map(canvas => canvas.getContext('2d'));
+  const direction = get('direction'), slider = get('slider'), elapsed = get('elapsed');
+  const axes = {
+    '+X':[1,0,0], '-X':[-1,0,0], '+Y':[0,1,0], '-Y':[0,-1,0], '+Z':[0,0,1], '-Z':[0,0,-1]
+  };
+  const deg = Math.PI / 180, clamp = (x,lo,hi) => Math.max(lo,Math.min(hi,x));
+  const dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const minus = (a,b) => a.map((x,i) => x-b[i]);
+  const mul = (a,s) => a.map(x => x*s);
+  const cross = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const unit = a => mul(a,1/(Math.hypot(...a)||1));
+  const db = x => 10*Math.log10(x);
+  const radius = x => clamp((x + 20)/23,0,1);
+  const spherical = (theta,phi) => [Math.sin(theta)*Math.cos(phi),Math.sin(theta)*Math.sin(phi),Math.cos(theta)];
+  const colors = {rh:'var(--viz-series-1,var(--blue))',lh:'var(--viz-series-2,var(--orange))',
+    background:'var(--background)', foreground:'var(--foreground)', muted:'var(--muted-foreground)', border:'var(--border)'};
+  const swatch = document.createElement('span');
+  swatch.hidden = true;
+  root.append(swatch);
+  const pixel = document.createElement('canvas').getContext('2d',{willReadFrequently:true});
+  const palette = {};
+  function readColors() {
+    for (const [name,value] of Object.entries(colors)) {
+      swatch.style.color = value;
+      pixel.clearRect(0,0,1,1);
+      pixel.fillStyle = getComputedStyle(swatch).color;
+      pixel.fillRect(0,0,1,1);
+      palette[name] = [...pixel.getImageData(0,0,1,1).data].slice(0,3);
+    }
+  }
+  const mix = (a,b,t) => a.map((x,i) => x+(b[i]-x)*t);
+  const rgb = c => 'rgb(' + c.map(Math.round).join(' ') + ')';
+  const gridIndex = (t,p) => (t*180+(p%180))*2;
+  function gainAt(v) {
+    const polar = Math.atan2(Math.hypot(v[0],v[1]),v[2])/deg/2;
+    const bearing = (Math.atan2(v[1],v[0])/deg/2+180)%180;
+    const t = Math.floor(polar), p = Math.floor(bearing), nextT = Math.min(t+1,90);
+    const i = gridIndex(t,p), j = gridIndex(t,p+1), k = gridIndex(nextT,p), l = gridIndex(nextT,p+1);
+    const f = polar-t, g = bearing-p;
+    const circular = [0,1].map(c => (1-f)*((1-g)*powers[i+c]+g*powers[j+c]) + f*((1-g)*powers[k+c]+g*powers[l+c]));
+    return [circular[0]+circular[1],...circular];
+  }
+  const meshDirections = [], points = [[],[],[]], faces = [[],[],[]], imbalance = [];
+  const rows = 45, cols = 90;
+  for (let t=0; t<=rows; t++) {
+    for (let p=0; p<cols; p++) {
+      const v = spherical(t*Math.PI/rows,p*2*Math.PI/cols);
+      const i = gridIndex(2*t,2*p);
+      const rh = powers[i], lh = powers[i+1], total = rh+lh;
+      meshDirections.push(v);
+      imbalance.push((rh-lh)/total);
+      [total,rh,lh].forEach((power,mode) => points[mode].push(mul(v,radius(db(power)))));
+    }
+  }
+  for (let t=0; t<rows; t++) {
+    for (let p=0; p<cols; p++) {
+      const q = (p+1)%cols, i = t*cols+p, j = (t+1)*cols+p, k = (t+1)*cols+q, l = t*cols+q;
+      const index = [i,j,k,l];
+      points.forEach((mesh,mode) => {
+        const [a,b,c,d] = index.map(n => mesh[n]);
+        const normal = unit(cross(minus(c,a),minus(d,b)));
+        if (dot(normal,normal) === 0) return;
+        const center = [0,1,2].map(n => (a[n]+b[n]+c[n]+d[n])/4);
+        faces[mode].push({index,normal,center,hand:(imbalance[i]+imbalance[j]+imbalance[k]+imbalance[l])/4});
+      });
+    }
+  }
+  const surfaces = canvases.map(() => document.createElement('canvas'));
+  const buffers = surfaces.map(canvas => canvas.getContext('2d'));
+  const layouts = [];
+  let hitFaces = [];
+  let yaw = -28*deg, pitch = 14*deg, viewDirty = true, frame = 0;
+  let choice = 'fairbanks', selectedTime = tracks.fairbanks.worst, picked = null;
+  let selection = {vector:axes['+Y'], gain:gainAt(axes['+Y'])};
+  const stateKeys = new Set([...Object.keys(axes),...Object.keys(tracks),'picked']);
+  const replaceMinus = x => x.replaceAll('-','−');
+  const signed = x => (x===-Infinity?'−∞':replaceMinus((x>0?'+':'')+x.toFixed(1)))+' dBi';
+  const percent = x => x>0 && x<.001 ? '<0.1%' : x<1 && x>.999 ? '>99.9%' : (x*100).toFixed(1)+'%';
+  function clock(t) {
+    const s = Math.round(t);
+    return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+  }
+  function nearest(track, seconds) {
+    let lo = 0, hi = track.length-1;
+    while (lo<hi) {
+      const mid = (lo+hi)>>1;
+      if (track[mid][0]<seconds) lo=mid+1;
+      else hi=mid;
+    }
+    return track[lo>0 && seconds-track[lo-1][0]<track[lo][0]-seconds ? lo-1 : lo];
+  }
+  function showSelection(announce=false) {
+    const track = tracks[choice]?.samples;
+    const row = track ? nearest(track,selectedTime) : null;
+    const vector = row ? row.slice(1,4) : (axes[choice] || picked);
+    selection = {vector,gain:gainAt(vector)};
+    const [total,rh,lh] = selection.gain;
+    const fraction = rh/total;
+    get('share').style.width = 100*fraction+'%';
+    get('rhp').textContent = 'RHCP '+percent(fraction);
+    get('lhp').textContent = 'LHCP '+percent(lh/total);
+    for (const [key,power] of Object.entries({total,rh,lh})) get(key).textContent = signed(db(power));
+    if (row) {
+      const text = clock(row[0])+' / '+clock(track.at(-1)[0])+(row[4]?' · rolling':'');
+      elapsed.textContent = text;
+      slider.setAttribute('aria-valuetext',clock(row[0])+' elapsed'+(row[4]?', rolling':''));
+    }
+    if (announce) get('status').textContent = 'Total '+signed(db(total))+', RHCP '+signed(db(rh))+', LHCP '+signed(db(lh));
+    schedule();
+  }
+  function choose(key,seconds,announce=false) {
+    choice = key;
+    const track = tracks[choice];
+    direction.value = choice;
+    get('time').hidden = !track;
+    if (track) {
+      const limit = track.samples.at(-1)[0];
+      selectedTime = Number.isFinite(seconds) ? clamp(seconds,0,limit) : track.worst;
+      slider.max = limit;
+      slider.value = selectedTime;
+    }
+    showSelection(announce);
+  }
+  function makeCamera() {
+    const front = spherical(Math.PI/2-pitch,yaw);
+    const right = [-Math.sin(yaw),Math.cos(yaw),0];
+    return {front,right,up:cross(front,right)};
+  }
+  function layout(canvas, buffer) {
+    const {width:w,height:h} = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio||1,2);
+    const width = Math.max(1,Math.round(w*dpr)), height = Math.max(1,Math.round(h*dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width; canvas.height = height;
+    }
+    if (buffer.width !== width || buffer.height !== height) {
+      buffer.width = width; buffer.height = height;
+    }
+    return {w,h,dpr,cx:w/2,cy:h/2,scale:Math.min((w-36)/2.34,(h-29)/2.34)};
+  }
+  function line(ctx,a,b,style,width=1) {
+    ctx.beginPath();
+    ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.strokeStyle=style; ctx.lineWidth=width; ctx.stroke();
+  }
+  function drawSurface(mode,camera,pickable=true) {
+    const canvas = canvases[mode], ctx = buffers[mode], buffer = surfaces[mode];
+    const box = layout(canvas,buffer);
+    const {w,h,dpr,cx,cy,scale} = box;
+    if (scale<=0) return;
+    const project = v => [cx+scale*dot(v,camera.right),cy-scale*dot(v,camera.up)];
+    layouts[mode] = {...box,project};
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+    ctx.beginPath();
+    ctx.arc(cx,cy,scale*radius(0),0,2*Math.PI);
+    ctx.setLineDash([3,4]);
+    ctx.strokeStyle=rgb(mix(palette.background,palette.muted,.5));
+    ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
+    for (const axis of [axes['+X'],axes['+Y'],axes['+Z']]) {
+      line(ctx,project(mul(axis,-1.12)),project(mul(axis,1.12)),rgb(palette.border));
+    }
+    const projected = points[mode].map(project);
+    const visible = faces[mode].filter(face => dot(face.normal,camera.front) > 0);
+    visible.sort((a,b) => dot(a.center,camera.front)-dot(b.center,camera.front));
+    const light = unit(camera.front.map((v,i) => v+.65*camera.up[i]-.38*camera.right[i]));
+    if (!mode && pickable) hitFaces = visible.map(face => ({index:face.index,xy:face.index.map(i=>projected[i])}));
+    const neutral = mix(palette.background,palette.muted,.52);
+    for (const face of visible) {
+      const base = mode ? palette[mode===1?'rh':'lh'] :
+        mix(neutral,palette[face.hand>=0?'rh':'lh'],Math.sqrt(Math.abs(face.hand)));
+      const lit = clamp(dot(light,face.normal),0,1);
+      const color = rgb(mix(palette.background,base,.60+.34*lit));
+      const [a,b,c,d] = face.index.map(i=>projected[i]);
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.lineTo(...c); ctx.lineTo(...d); ctx.closePath();
+      ctx.fillStyle=color; ctx.fill();
+      ctx.strokeStyle=color; ctx.lineWidth=.55; ctx.stroke();
+    }
+    const font = getComputedStyle(root);
+    const fontSize = parseFloat(font.getPropertyValue('--font-size-base')) || 14;
+    ctx.font = '500 '+Math.max(11,fontSize*.87)+'px '+font.fontFamily;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineJoin='round';
+    const placed = [];
+    const axisLabels = Object.entries(axes).sort((a,b) => Math.abs(dot(a[1],camera.front))-Math.abs(dot(b[1],camera.front)));
+    for (const [key,v] of axisLabels) {
+      const anchor = project(mul(v,1.22));
+      if (Math.hypot(anchor[0]-cx,anchor[1]-cy)<scale*.28 ||
+          placed.some(p=>Math.hypot(p[0]-anchor[0],p[1]-anchor[1])<22)) continue;
+      placed.push(anchor);
+      line(ctx,project(mul(v,1.02)),project(mul(v,1.12)),rgb(palette.muted));
+      ctx.lineWidth=3; ctx.strokeStyle=rgb(palette.background); ctx.fillStyle=rgb(palette.foreground);
+      ctx.strokeText(replaceMinus(key),...anchor); ctx.fillText(replaceMinus(key),...anchor);
+    }
+  }
+  function arrow(ctx,start,end,fg,bg) {
+    const dx=end[0]-start[0], dy=end[1]-start[1], len=Math.hypot(dx,dy);
+    if (len<1) return;
+    const head=Math.min(11,len*.35), tail=head*.48;
+    const a=[end[0]-(dx*head+dy*tail)/len,end[1]-(dy*head-dx*tail)/len];
+    const b=[end[0]-(dx*head-dy*tail)/len,end[1]-(dy*head+dx*tail)/len];
+    ctx.lineCap='round';
+    for (const [stroke,width] of [[bg,5],[fg,2]]) {
+      line(ctx,start,end,stroke,width);
+      line(ctx,a,end,stroke,width);
+      line(ctx,b,end,stroke,width);
+    }
+  }
+  function drawOverlay(mode, movieMode=false) {
+    const box = layouts[mode];
+    if (!box) return;
+    const {w,h,dpr,project} = box;
+    const ctx = contexts[mode], v = selection.vector;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+    ctx.drawImage(surfaces[mode],0,0,w,h);
+    const start = project([0,0,0]), end = project(mul(v,1.14)), marker = project(mul(v,radius(db(selection.gain[mode]))));
+    const fg = rgb(palette.foreground), bg = rgb(palette.background);
+    if (movieMode) {
+      arrow(ctx,start,end,fg,bg);
+    } else {
+      line(ctx,start,end,bg,3.4);
+      line(ctx,start,end,fg,1.25);
+      ctx.beginPath(); ctx.arc(end[0],end[1],2.1,0,2*Math.PI); ctx.fillStyle=fg; ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(marker[0],marker[1],movieMode?5.2:4,0,2*Math.PI); ctx.fillStyle=bg; ctx.fill();
+    ctx.strokeStyle=fg; ctx.lineWidth=movieMode?2:1.6; ctx.stroke();
+  }
+  function schedule(full=false) {
+    viewDirty ||= full;
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (viewDirty) {
+        viewDirty = false;
+        const camera = makeCamera();
+        canvases.forEach((_,i)=>drawSurface(i,camera));
+      }
+      canvases.forEach((_,i)=>drawOverlay(i));
+    });
+  }
+  function triangleWeights(x,y,a,b,c) {
+    const d = (b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);
+    if (Math.abs(d)<1e-8) return null;
+    const u = ((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/d;
+    const v = ((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/d;
+    const w = 1-u-v;
+    return Math.min(u,v,w)>=-1e-6 ? [u,v,w] : null;
+  }
+  function pick(x,y) {
+    for (let i=hitFaces.length-1;i>=0;i--) {
+      const {xy,index} = hitFaces[i];
+      for (const tri of [[0,1,2],[0,2,3]]) {
+        const weights = triangleWeights(x,y,...tri.map(j=>xy[j]));
+        if (!weights) continue;
+        picked = unit([0,1,2].map(k => weights.reduce((sum,w,j) => sum+w*meshDirections[index[tri[j]]][k],0)));
+        choose('picked',null,true);
+        save();
+        return;
+      }
+    }
+  }
+  function save() {
+    window.openai?.setWidgetState?.({
+      modelContent:{lineOfSight:choice,elapsedSeconds:tracks[choice]?nearest(tracks[choice].samples,selectedTime)[0]:null,
+        bodyDirection:selection.vector.map(x=>Math.round(x*10000)/10000)},
+      privateContent:{yaw,pitch,picked}
+    })?.catch(()=>{});
+  }
+  function restore(state) {
+    const saved = state?.modelContent ?? state;
+    const view = state?.privateContent;
+    if (Number.isFinite(view?.yaw)) yaw=view.yaw;
+    if (Number.isFinite(view?.pitch)) pitch=clamp(view.pitch,-1.45,1.45);
+    if (Array.isArray(view?.picked) && view.picked.length===3 && view.picked.every(Number.isFinite) && Math.hypot(...view.picked)>0) {
+      picked=unit(view.picked);
+    }
+    if (stateKeys.has(saved?.lineOfSight) && (saved.lineOfSight!=='picked'||picked)) {
+      choose(saved.lineOfSight,saved.elapsedSeconds);
+    } else {
+      choose('fairbanks');
+    }
+    schedule(true);
+  }
+  direction.addEventListener('change',()=>{choose(direction.value,null,true);save();});
+  slider.addEventListener('input',()=>{selectedTime=+slider.value;showSelection();});
+  slider.addEventListener('change',()=>{showSelection(true);save();});
+  get('turn').addEventListener('click',()=>{yaw+=Math.PI/3;schedule(true);save();});
+  canvases.forEach((canvas,mode)=>{
+    let drag = null;
+    canvas.addEventListener('pointerdown',event=>{
+      if (!event.isPrimary || event.button!==0) return;
+      drag = {id:event.pointerId,x:event.clientX,y:event.clientY,yaw,pitch,moved:false};
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointermove',event=>{
+      if (!drag || event.pointerId!==drag.id) return;
+      const dx=event.clientX-drag.x, dy=event.clientY-drag.y;
+      if (Math.hypot(dx,dy)>4) drag.moved=true;
+      if (!drag.moved) return;
+      canvas.dataset.dragging='';
+      yaw=drag.yaw-dx*.012; pitch=clamp(drag.pitch+dy*.012,-1.45,1.45);
+      schedule(true);
+    });
+    function release(event) {
+      if (!drag || event.pointerId!==drag.id) return;
+      if (drag.moved) save();
+      else if (event.type==='pointerup' && mode===0) {
+        const rect = canvas.getBoundingClientRect();
+        pick(event.clientX-rect.left,event.clientY-rect.top);
+      }
+      delete canvas.dataset.dragging;
+      drag=null;
+    }
+    canvas.addEventListener('pointerup',release);
+    canvas.addEventListener('pointercancel',release);
+    canvas.addEventListener('lostpointercapture',release);
+  });
+  const resize = new ResizeObserver(()=>schedule(true));
+  canvases.forEach(canvas=>resize.observe(canvas));
+  const updateTheme = () => {readColors();schedule(true);};
+  new MutationObserver(updateTheme).observe(document.documentElement,{attributes:true,attributeFilter:['class','style','data-theme']});
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',updateTheme);
+  window.addEventListener('openai:set_globals',event=>{
+    updateTheme();
+    const state=event.detail?.globals?.widgetState;
+    if (state?.modelContent?.lineOfSight || state?.lineOfSight) restore(state);
+  });
+  /* __MOVIE_RENDERER__ */
+  readColors();
+  restore(window.openai?.widgetState);
+})();
+</script>

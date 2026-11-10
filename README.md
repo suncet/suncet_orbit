@@ -92,6 +92,22 @@ Use `--days` for a shorter run, `--mask-deg` to change the elevation limit,
 `--roll-seconds` to change slew duration, or `--uplink-bps` and `--downlink-bps`
 to change rates.
 
+### Rotating 3D gain-pattern movie
+
+```sh
+python suncet_uhf_gain_pattern_movie.py --pattern /path/to/suncet_uhf_radiation_pattern.txt
+```
+
+The 57-second MP4 shows the total, RHCP, and LHCP gain surfaces on a common
+dBi scale. The arrow follows the spacecraft-to-station line of sight in body
+coordinates as the camera rotates. Playback slows near the RHCP minimum in
+`Fairbanks-0003` and the modeled roll in `Boulder-0018`. Both contacts are from
+the first five days of the default planning orbit with the 5° elevation mask.
+
+The exporter uses the local NEC file and requires Chrome or Chromium and FFmpeg
+with H.264 support. Use `--chrome` to supply the browser executable if needed.
+The default output is `outputs/uhf_link_passes/movies/suncet-uhf-gain-pattern.mp4`.
+
 ## Lunar solar eclipses seen by SunCET
 
 `suncet_lunar_solar_eclipses.py` predicts the Moon crossing the solar disk from

@@ -16,6 +16,7 @@ dependencies:
   - jplephem>=2.18
   - pillow>=9.1
   - ffmpeg
+  - websocket-client
   - scipy=1.11.4
   - spiceypy=6.0.0
   - poliastro=0.17.0
