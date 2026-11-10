@@ -29,8 +29,9 @@ equirectangular map (the globe rotates correctly in inertial space; not full ITR
 Falls back to wireframe if loading fails.
 
 Uses poliastro two-body propagation plus optional J2 nodal drift (not full STK).
-Defaults match the sun-vector orbit plan: 510 km SSO, i ~ 97.44°, LTAN 18:00,
-epoch 2026-12-15T18:00:00Z (ussf_178), ~1 frame per day, 24 fps MP4.
+Defaults match the mission planning orbit: 510 km, e = 0.0008, i = 97.44°,
+confirmed MLTAN 18:00, epoch 2027-03-15T00:00:00Z (ussf_178, NET launch date;
+midnight is a placeholder), ~1 frame per day, 24 fps MP4.
 """
 
 from __future__ import annotations
@@ -65,13 +66,14 @@ Image.MAX_IMAGE_PIXELS = None
 from poliastro.bodies import Earth
 from poliastro.twobody import Orbit
 
-from suncet_ltan_to_raan import LAUNCHES, raan_for_launch
+from suncet_ltan_to_raan import DEFAULT_LAUNCH, DEFAULT_LAUNCH_NAME, LAUNCHES, raan_for_launch
 
 
 # --- Scenario (plan defaults) ---
-LAUNCH_NAME = "ussf_178"
-ALTITUDE_KM = 510.0
-INCLINATION_DEG = 97.44
+LAUNCH_NAME = DEFAULT_LAUNCH_NAME
+ALTITUDE_KM = DEFAULT_LAUNCH["altitude_km"]
+INCLINATION_DEG = DEFAULT_LAUNCH["inclination_deg"]
+ECCENTRICITY = DEFAULT_LAUNCH["eccentricity"]
 N_FRAMES_DEFAULT = 366  # ~daily over one year
 FPS_DEFAULT = 24
 # ~16:9 figure; at dpi=128 this is roughly 720p-class pixel dimensions.
@@ -338,7 +340,7 @@ def build_initial_orbit() -> Orbit:
     return Orbit.from_classical(
         Earth,
         a,
-        0.0 * u.one,
+        ECCENTRICITY * u.one,
         inc,
         raan,
         0.0 * u.deg,
@@ -385,7 +387,7 @@ def precompute_trajectory(
         r = np.asarray(orb.r.to(u.km).value, dtype=np.float64).reshape(3)
         if apply_j2_raan:
             dt_s = (times[i] - epoch).to(u.s).value
-            r = _rotation_z(-omega_dot * dt_s) @ r
+            r = _rotation_z(omega_dot * dt_s) @ r
         positions[i, :] = r
     return positions, times
 
@@ -500,7 +502,7 @@ def run_movie_pyvista(
             )
 
         dt_s = (obstime - orbit0.epoch).to(u.s).value
-        ring_gkms = (_rotation_z(-omega_dot * dt_s) @ ring_base_gcrs.T).T
+        ring_gkms = (_rotation_z(omega_dot * dt_s) @ ring_base_gcrs.T).T
         ring_fix = (r_plot @ ring_gkms.T).T
         plotter.add_mesh(
             pv.lines_from_points(ring_fix, close=True),
@@ -695,7 +697,7 @@ def run_movie_matplotlib(
             )
 
         dt_s = (obstime - orbit0.epoch).to(u.s).value
-        ring_gkms = (_rotation_z(-omega_dot * dt_s) @ ring_base_gcrs.T).T
+        ring_gkms = (_rotation_z(omega_dot * dt_s) @ ring_base_gcrs.T).T
         ring_fix = (r_plot @ ring_gkms.T).T
         ax.plot(
             ring_fix[:, 0],

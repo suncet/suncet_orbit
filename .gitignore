@@ -6,3 +6,6 @@ __pycache__/suncet_get_spatial_average_atmospheric_density.cpython-310.pyc
 *.png
 *.mp4
 *.log
+/outputs/lunar_solar_eclipses/
+/outputs/ground_station_angles/
+/outputs/uhf_link_passes/

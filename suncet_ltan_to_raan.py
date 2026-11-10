@@ -1,8 +1,8 @@
 """
 Compute RAAN from LTAN for Sun-synchronous orbits using poliastro.
 
-Launch metadata is keyed by a short launch name; each entry has an ISO8601
-epoch and an LTAN time string (HH:MM:SS).
+Launch metadata is keyed by a short launch name. The default mission entry
+also holds the orbit targets used by the planning tools.
 """
 
 from __future__ import annotations
@@ -10,9 +10,10 @@ from __future__ import annotations
 import astropy.units as u
 from astropy.coordinates import Angle, Longitude
 from astropy.time import Time
-from poliastro.earth.util import raan_from_ltan
 
-# Launch name -> { "epoch": ISO8601 string, "ltan": "HH:MM:SS" }
+DEFAULT_LAUNCH_NAME = "ussf_178"
+USSF_178_NET_DATE = "2027-03-15"
+
 LAUNCHES = {
     "twilight": {
         "epoch": "2026-01-11T13:44:50Z",
@@ -23,10 +24,18 @@ LAUNCHES = {
         "ltan": "11:00:00",
     },
     "ussf_178": {
-        "epoch": "2026-12-15T18:00:00Z",
+        "launch_date_net": USSF_178_NET_DATE,
+        # Midnight is a planning placeholder, not injection time.
+        "epoch": f"{USSF_178_NET_DATE}T00:00:00Z",
+        "altitude_km": 510.0,
+        "eccentricity": 0.0008,
+        "inclination_deg": 97.44,
         "ltan": "18:00:00",
+        "mltan_drift_target_min_per_year": 0.0,
+        "mltan_drift_tolerance_min_per_year": 10.0,
     },
 }
+DEFAULT_LAUNCH = LAUNCHES[DEFAULT_LAUNCH_NAME]
 
 
 def ltan_string_to_quantity(ltan: str) -> u.Quantity:
@@ -38,8 +47,16 @@ def ltan_string_to_quantity(ltan: str) -> u.Quantity:
     return Angle(f"{h}h{m}m{s}s").to(u.hourangle)
 
 
+# Keep the planning model and command-line defaults tied to the launch settings.
+DEFAULT_MLTAN_HOURS = float(
+    ltan_string_to_quantity(DEFAULT_LAUNCH["ltan"]).to_value(u.hourangle)
+)
+
+
 def raan_for_launch(launch_name: str) -> Longitude:
     """RAAN in GCRS for a named launch from LAUNCHES, wrapped to [0°, 360°)."""
+    from poliastro.earth.util import raan_from_ltan
+
     if launch_name not in LAUNCHES:
         raise KeyError(f"Unknown launch {launch_name!r}; known: {list(LAUNCHES)}")
     meta = LAUNCHES[launch_name]
