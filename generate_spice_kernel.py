@@ -2,6 +2,8 @@ import spiceypy as sp
 import numpy as np
 import os
 
+from suncet_ltan_to_raan import DEFAULT_MLTAN_HOURS
+
 def create_ephemeris(altitude_km, ltan_hours, start_time, end_time, interval_seconds, path_filename=None):
     times, positions, velocities = generate_ephemeris_data(altitude_km, ltan_hours, start_time, end_time, interval_seconds)
     
@@ -157,6 +159,6 @@ if __name__ == "__main__":
     end_time = sp.str2et('2025-03-22T00:00:00')
     interval_seconds = 60
     altitude_km = 400
-    ltan_hours = 12
+    ltan_hours = DEFAULT_MLTAN_HOURS
 
     create_ephemeris(altitude_km, ltan_hours, start_time, end_time, interval_seconds)
