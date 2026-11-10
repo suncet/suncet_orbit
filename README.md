@@ -206,6 +206,74 @@ References: [JPL DE440 planetary and lunar ephemerides](https://ssd.jpl.nasa.gov
 [NAIF occultation searches and light-time conventions](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/gfoclt_c.html),
 [IAU nominal solar radius](https://arxiv.org/abs/1510.07674).
 
+### Movies from existing simulator outputs
+
+`suncet_lunar_eclipse_movie.py` uses an existing full-detector movie and an
+underlying FITS frame for its plate scale, center, and solar radius. By default,
+it chooses the deepest complete Earth-clear lunar event in each supplied summary
+(falling back to other complete events if needed). It projects both the Moon
+and Earth's limb into the detector and overlays opaque geometric masks across
+the full field of view, including the corona. It also adjusts the saved Sun's
+angular size for the prediction date.
+One summary produces one movie; two produce individual movies plus a side-by-side
+comparison. The panels show separate predicted passes, with their own UTC clocks.
+The movie title is "SunCET eclipses"; each panel shows only its MLTAN, UTC
+timestamp, and disk coverage. Provenance and model limitations are recorded in
+the JSON sidecar.
+
+**Disk covered** is the combined projected solar-disk area hidden by Earth or
+the Moon, counting overlapping coverage once. It reaches 100% during full Earth
+eclipse. Coverage of the corona outside the reference photospheric disk is
+rendered but is not included in this percentage. Partial Earth coverage uses
+512 × 512 antialiased area sampling with spherical sight lines; lunar-only
+coverage retains the analytic circular-disk calculation.
+
+For the saved Golden Hour example on this workstation:
+
+```sh
+python suncet_lunar_eclipse_movie.py \
+  outputs/lunar_solar_eclipses/mltan18/summary.json \
+  --source-movie "../suncet_instrument_simulator/output/golden-hour-measurement/SunCET Golden Hour movie seamless v4.mp4" \
+  --source-fits "$suncet_data/synthetic/level0/fits/cubesat/bright_fast/no jitter/config_default_OBS_2023-02-14T17:00:00.000_000.fits" \
+  --source-span-s 2700
+```
+
+To include a particular Earth eclipse, add an explicit `--start` and `--end`
+within the supplied 18:00 summary's prediction range, choosing an interval when
+Earth intersects the solar view. Explicit intervals can also render Earth
+eclipses without a lunar crossing. Alternatively,
+`--event-number N` selects a 1-based event from a summary, including events that
+overlap Earth eclipse. Earth intersections are rendered automatically and no
+longer cause the movie generator to reject an interval.
+
+The saved sequence spans 90 intervals of 30 simulated seconds; the renderer uses
+the beginning of that existing scene at the same simulated cadence as the lunar
+motion. Default output is 25 s at 24 fps, including three real minutes before
+and after disk contact. It never reruns the instrument simulator. `ffmpeg`,
+`ffprobe`, and Pillow must be available.
+
+Output for the mission orbit is under `outputs/lunar_solar_eclipses/movies/`:
+`mltan18.mp4`, maximum-coverage PNGs, and
+`movie_provenance.json` with source hashes and all calibration/timing assumptions.
+An explicitly supplied pair of summaries also produces `mltan_comparison.mp4`.
+Each scenario also gets a coverage CSV with separate Moon, Earth and combined
+percentages. The JSON records Earth ingress/egress and full-Earth-eclipse
+intervals. When Earth crosses the solar disk, an additional `*_earth_limb.png`
+captures a partial-coverage frame.
+The saved FITS has duplicate CD and PC/CDELT descriptions; the renderer uses the
+explicit 9.6 arcsec/binned-pixel CD matrix, consistent with the simulator's
+2.67° × 2.0° field of view. The source must be uncropped, aspect-ratio preserving,
+and displayed with lower FITS origin. Other backgrounds require their matching
+FITS calibration and verified scene duration.
+
+These are planning illustrations: the saved CME is not a forecast of future solar
+structure. The black overlays are applied after the existing optical/readout
+simulation and do not recompute scattering, diffraction, detector noise, or
+exposure smearing. Earth uses the predictor's spherical equatorial-radius limb,
+including any configured Earth-limb margin, without an atmospheric absorption
+or refraction profile. Solar north uses [SunPy's IAU pole convention](https://docs.sunpy.org/en/stable/reference/sun.html);
+actual SunCET roll is not predicted (`--roll-deg` changes the assumed detector roll).
+
 ### Validation
 
 ```sh
