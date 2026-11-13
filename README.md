@@ -1,11 +1,29 @@
 # suncet_orbit
 Tools that deal with orbital simulation and analysis
 
-The shared mission orbit targets are `LAUNCHES["ussf_178"]` in
-`suncet_ltan_to_raan.py`. The planning tools default to **510 km** altitude,
+The shared mission orbit targets are in `orbit_config.json`. The planning
+tools use its `default_launch` entry, currently `ussf_178`, with **510 km** altitude,
 **0.0008** eccentricity, **97.44°** inclination, and **18:00:00** MLTAN.
 The MLTAN drift target is **0 min/year** with a **±10 min/year** tolerance.
 The launch date is **NET March 15, 2027**.
+
+Run `python suncet_ltan_to_raan.py` to print the RAAN for each launch.
+To generate a synthetic TLE for the default launch:
+
+```sh
+python suncet_generate_synthetic_tle.py
+```
+
+The script writes `suncet_synthetic.tle` by default. Use `--output` to choose
+a different path or `--launch` to select a launch with synthetic TLE settings.
+The `synthetic_tle` section of the launch entry sets the placeholder catalog
+number, argument of perigee, mean anomaly, and BSTAR. The defaults put the
+mean orbit at the ascending node at midnight UTC on the NET date, with zero
+drag. The exporter derives the TEME plane from the configured MLTAN and uses
+the configured altitude above the WGS-72 equatorial radius to set the SGP4
+mean semimajor axis. These approximate mean elements are for planning and
+software testing. The eclipse tool can read the generated file with
+`--tle-file`. The UHF tools continue to use the shared Kepler and J2 model.
 
 ## Ground-station angles and roll attitude
 

@@ -1,40 +1,24 @@
 """
 Compute RAAN from LTAN for Sun-synchronous orbits using poliastro.
 
-Launch metadata is keyed by a short launch name. The default mission entry
-also holds the orbit targets used by the planning tools.
+Load orbit targets from orbit_config.json.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
+from pathlib import Path
+
 import astropy.units as u
 from astropy.coordinates import Angle, Longitude
 from astropy.time import Time
+from astropy.utils import iers
 
-DEFAULT_LAUNCH_NAME = "ussf_178"
-USSF_178_NET_DATE = "2027-03-15"
-
-LAUNCHES = {
-    "twilight": {
-        "epoch": "2026-01-11T13:44:50Z",
-        "ltan": "18:00:00",
-    },
-    "transporter_17": {
-        "epoch": "2026-06-15T12:00:00Z",
-        "ltan": "11:00:00",
-    },
-    "ussf_178": {
-        "launch_date_net": USSF_178_NET_DATE,
-        # Midnight is a planning placeholder, not injection time.
-        "epoch": f"{USSF_178_NET_DATE}T00:00:00Z",
-        "altitude_km": 510.0,
-        "eccentricity": 0.0008,
-        "inclination_deg": 97.44,
-        "ltan": "18:00:00",
-        "mltan_drift_target_min_per_year": 0.0,
-        "mltan_drift_tolerance_min_per_year": 10.0,
-    },
-}
+with Path(__file__).with_name("orbit_config.json").open(encoding="utf-8") as stream:
+    _orbit_config = json.load(stream)
+DEFAULT_LAUNCH_NAME = _orbit_config["default_launch"]
+LAUNCHES = _orbit_config["launches"]
 DEFAULT_LAUNCH = LAUNCHES[DEFAULT_LAUNCH_NAME]
 
 
@@ -67,13 +51,19 @@ def raan_for_launch(launch_name: str) -> Longitude:
 
 
 def main() -> None:
-    for name in LAUNCHES:
-        epoch = Time(LAUNCHES[name]["epoch"], format="isot", scale="utc")
-        raan_deg = raan_for_launch(name)
-        print(f"{name}:")
-        print(f"  epoch: {epoch.isot} ({epoch.scale})")
-        print(f"  LTAN:  {LAUNCHES[name]['ltan']}")
-        print(f"  RAAN:  {raan_deg.to(u.deg):.4f}")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--launch", choices=LAUNCHES, help="Select a single launch.")
+    args = parser.parse_args()
+
+    with (iers.conf.set_temp("auto_download", False),
+          iers.conf.set_temp("iers_degraded_accuracy", "warn")):
+        for name in (args.launch,) if args.launch else LAUNCHES:
+            epoch = Time(LAUNCHES[name]["epoch"], format="isot", scale="utc")
+            raan_deg = raan_for_launch(name)
+            print(f"{name}:")
+            print(f"  epoch: {epoch.isot} ({epoch.scale})")
+            print(f"  LTAN:  {LAUNCHES[name]['ltan']}")
+            print(f"  RAAN:  {raan_deg.to(u.deg):.4f}")
 
 
 if __name__ == "__main__":

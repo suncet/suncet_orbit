@@ -1,0 +1,29 @@
+{
+  "default_launch": "ussf_178",
+  "launches": {
+    "twilight": {
+      "epoch": "2026-01-11T13:44:50Z",
+      "ltan": "18:00:00"
+    },
+    "transporter_17": {
+      "epoch": "2026-06-15T12:00:00Z",
+      "ltan": "11:00:00"
+    },
+    "ussf_178": {
+      "launch_date_net": "2027-03-15",
+      "epoch": "2027-03-15T00:00:00Z",
+      "altitude_km": 510.0,
+      "eccentricity": 0.0008,
+      "inclination_deg": 97.44,
+      "ltan": "18:00:00",
+      "mltan_drift_target_min_per_year": 0.0,
+      "mltan_drift_tolerance_min_per_year": 10.0,
+      "synthetic_tle": {
+        "catalog_number": 99999,
+        "argument_of_perigee_deg": 0.0,
+        "mean_anomaly_deg": 0.0,
+        "bstar": 0.0
+      }
+    }
+  }
+}
